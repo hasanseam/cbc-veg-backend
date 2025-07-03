@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cbc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cbc_vegetable_order
+      POSTGRES_USER: cbc_admin
+      POSTGRES_PASSWORD: cbc_secure_password_123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - cbc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cbc_admin -d cbc_vegetable_order"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Node.js API
+  api:
+    build: .
+    container_name: cbc-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: cbc_vegetable_order
+      DB_USER: cbc_admin
+      DB_PASSWORD: cbc_secure_password_123
+      JWT_SECRET: cbc_jwt_secret_key_2024
+      JWT_EXPIRES_IN: 7d
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 100
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cbc-network
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./logs:/usr/src/app/logs
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  cbc-network:
+    driver: bridge

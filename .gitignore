@@ -1,0 +1,91 @@
+# ================================
+# Node.js
+# ================================
+
+# Node modules and logs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.*
+
+# Build artifacts
+dist/
+build/
+tmp/
+temp/
+
+# TypeScript
+*.tsbuildinfo
+
+# PM2 logs
+pids/
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+
+# Next.js
+.next/
+
+# Parcel
+.cache/
+
+# Serverless
+.serverless/
+
+# Binaries
+*.exe
+*.out
+*.dll
+*.so
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# ================================
+# Visual Studio / VS Code
+# ================================
+
+# VS Code settings
+.vscode/
+.history/
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+*.obj
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.log
+*.vspscc
+*.vssscc
+
+# Visual Studio folders
+.vs/
+*.sln
+*.VC.db
+*.ncb
+
+# JetBrains (if applicable)
+.idea/
+
+# ================================
+# Docker
+# ================================
+
+docker-compose.override.yml
+docker-compose.*.yml
