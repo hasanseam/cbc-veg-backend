@@ -2,16 +2,21 @@ const { pool, testConnection } = require('../config/database');
 
 const createTables = async () => {
   console.log('🚀 Starting database migration...');
-  
-  // Test connection first
-  const isConnected = await testConnection();
-  if (!isConnected) {
-    console.error('❌ Cannot connect to database. Please check your database configuration.');
+
+  try {
+    // Test connection first
+    await testConnection();
+    console.log('✅ Database connection successful.');
+  } catch (error) {
+    console.error(
+      '❌ Cannot connect to database. Please check your database configuration.',
+      error
+    );
     process.exit(1);
   }
 
   const client = await pool.connect();
-  
+
   try {
     console.log('📋 Creating tables...');
 
@@ -28,12 +33,33 @@ const createTables = async () => {
         description TEXT,
         image_url VARCHAR(500),
         category VARCHAR(100),
+        type VARCHAR(50),
         is_available BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
     console.log('✅ Products table created');
+
+    // Add 'type' column to products table if it doesn't exist
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'products' AND column_name = 'type'
+        ) THEN
+          ALTER TABLE products ADD COLUMN type VARCHAR(50);
+        END IF;
+      END$$;
+    `);
+    console.log('✅ Ensured "type" column exists in products table');
+
+    // Remove the UNIQUE constraint from product name if it exists
+    await client.query(`
+      ALTER TABLE products DROP CONSTRAINT IF EXISTS products_name_key;
+    `);
+    console.log('✅ Ensured UNIQUE constraint is removed from products(name)');
 
     // Create customers table
     await client.query(`
@@ -84,6 +110,19 @@ const createTables = async () => {
     `);
     console.log('✅ Order items table created');
 
+    // Create users table for authentication
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'admin',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Users table created');
+
     // Create indexes for better performance
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
@@ -102,6 +141,12 @@ const createTables = async () => {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_type ON products(type);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     `);
     console.log('✅ Indexes created');
 
@@ -197,6 +242,13 @@ const createTables = async () => {
       CREATE TRIGGER update_stock_on_order_delete
         AFTER DELETE ON order_items
         FOR EACH ROW EXECUTE FUNCTION update_stock_on_order();
+    `);
+
+    await client.query(`
+      DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+      CREATE TRIGGER update_users_updated_at
+        BEFORE UPDATE ON users
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     `);
 
     console.log('✅ All triggers created');

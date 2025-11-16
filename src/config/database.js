@@ -7,13 +7,10 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
 });
 
 pool.on('connect', () => {
-  console.log('Connected to PostgreSQL database');
+  console.log('🔌 New client connected to the database pool.');
 });
 
 pool.on('error', (err) => {
@@ -23,20 +20,20 @@ pool.on('error', (err) => {
 
 // Add the testConnection function
 const testConnection = async () => {
+  let client;
   try {
-    const client = await pool.connect();
-    await client.query('SELECT NOW()');
-    client.release();
-    console.log('✅ Database connection test successful');
-    return true;
-  } catch (error) {
-    console.error('❌ Database connection test failed:', error.message);
-    return false;
+    client = await pool.connect();
+    // If we got a client, the connection is successful.
+    return client;
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 };
 
 // Export both pool and testConnection
 module.exports = {
   pool,
-  testConnection
+  testConnection,
 };

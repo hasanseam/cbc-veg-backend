@@ -9,7 +9,7 @@ router.get('/health', (req, res) => {
     success: true,
     message: 'CBC Vegetable Order API is running',
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
   });
 });
 

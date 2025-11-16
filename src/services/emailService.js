@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 require('dotenv').config();
+const pdfService = require('./pdfService');
 
 class EmailService {
   constructor() {
@@ -9,21 +10,31 @@ class EmailService {
       secure: false,
       auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
+        pass: process.env.SMTP_PASS,
+      },
     });
   }
 
   async sendOrderEmail(order, orderItems) {
     try {
       const recipients = process.env.ORDER_EMAIL_RECIPIENTS.split(',');
+
+      // Generate the PDF
+      const pdfBuffer = await pdfService.createOrderPdf(order, orderItems);
+      const attachment = {
+        filename: `order_${order.id}_products.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      };
+
       const html = this.buildOrderEmailHtml(order, orderItems);
-            
+
       const mailOptions = {
         from: `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`,
         to: recipients,
-        subject: `CBC Order #${order.id} - ${new Date(order.created_at).toLocaleDateString()}`,
-        html: html
+        subject: `CBC Vegetable Order #${order.id} - ${new Date(order.created_at).toLocaleDateString()}`,
+        html: html,
+        attachments: [attachment],
       };
 
       const result = await this.transporter.sendMail(mailOptions);
@@ -38,17 +49,17 @@ class EmailService {
   buildOrderEmailHtml(order, orderItems) {
     const orderDate = new Date(order.created_at).toLocaleDateString();
     const orderTime = new Date(order.created_at).toLocaleTimeString();
-        
+
     let itemsHtml = '';
-    orderItems.forEach(item => {
+    orderItems.forEach((item) => {
       // Convert price and total_price to numbers to handle string values from database
       const price = parseFloat(item.price) || 0;
       const totalPrice = parseFloat(item.total_price) || 0;
-      
+
       itemsHtml += `
         <tr>
           <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.product_name}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${item.quantity}${item.unit}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${item.quantity} ${item.unit}</td>
           <!--td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">€${price.toFixed(2).replace('.', ',')}</td>
           <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">€${totalPrice.toFixed(2).replace('.', ',')}</td-->
         </tr>
@@ -110,6 +121,36 @@ class EmailService {
       </body>
       </html>
     `;
+  }
+
+  async sendAuthPinEmail(to, pin, ttlMinutes) {
+    // If SMTP isn't configured, just log the PIN for development
+    if (
+      !process.env.SMTP_USER ||
+      !process.env.SMTP_PASS ||
+      !process.env.FROM_EMAIL
+    ) {
+      console.log(
+        `Auth PIN for ${to}: ${pin} (expires in ${ttlMinutes} minutes)`
+      );
+      return true;
+    }
+
+    const mailOptions = {
+      from: `${process.env.FROM_NAME || 'CBC Vegetable'} <${process.env.FROM_EMAIL}>`,
+      to,
+      subject: 'Your login PIN',
+      text: `Your PIN is ${pin}. It expires in ${ttlMinutes} minutes.`,
+    };
+
+    try {
+      const result = await this.transporter.sendMail(mailOptions);
+      console.log('Auth PIN email sent successfully:', result.messageId);
+      return true;
+    } catch (error) {
+      console.error('Error sending auth PIN email:', error);
+      throw error;
+    }
   }
 }
 

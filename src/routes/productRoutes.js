@@ -5,13 +5,19 @@ const productController = require('../controllers/productController');
 // Get all products
 router.get('/', productController.getAllProducts);
 
+// Get all Kitchen products
+router.get('/type/kitchen', productController.getAllKitchenProducts);
+
+// Get all Bar products
+router.get('/type/bar', productController.getAllBarProducts);
+
 // Get product categories
 router.get('/categories', productController.getCategories);
 
-// Get low stock products
+// Get low stock products - Protected
 router.get('/low-stock', productController.getLowStockProducts);
 
-// Get stock report
+// Get stock report - Protected
 router.get('/stock-report', productController.getStockReport);
 
 // Get product by ID

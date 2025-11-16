@@ -1,0 +1,63 @@
+# .github/workflows/ci.yml
+
+name: Node.js CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    # Service containers to run with the job
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres:14-alpine
+        # Environment variables passed to the service container
+        env:
+          POSTGRES_USER: cbc_admin
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: cbc_vegetable_order_test
+        # Options for the health check
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          # Maps port 5432 on service container to the host
+          - 5432:5432
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+        env:
+          # Environment variables for the test execution
+          NODE_ENV: test
+          DB_HOST: localhost # The service container is available on localhost
+          DB_PORT: 5432
+          DB_USER: cbc_admin
+          DB_PASSWORD: test_password
+          DB_NAME: cbc_vegetable_order_test
+          JWT_SECRET: a-super-secret-key-for-testing
+          CORS_ORIGIN: http://localhost:3000

@@ -9,8 +9,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # Environment files
-.env
-.env.*
+# Ignore all .env files...
+.env*
+# ...except for the example file.
+# This file should be committed to version control so other developers
+# know which environment variables are needed. It should NOT contain
+# any sensitive values.
+!.env.example
+!.env.template
 
 # Build artifacts
 dist/

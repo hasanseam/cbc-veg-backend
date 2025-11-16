@@ -4,7 +4,7 @@ const { productSchema } = require('../validators/schemas');
 class ProductController {
   async getAllProducts(req, res) {
     try {
-      const { category, available, low_stock } = req.query;
+      const { category, available, low_stock, type } = req.query;
       let query = 'SELECT * FROM products WHERE 1=1';
       const params = [];
 
@@ -22,30 +22,39 @@ class ProductController {
         query += ` AND stock <= need_to_order`;
       }
 
+      if (type) {
+        params.push(type);
+        query += ` AND type = $${params.length}`;
+      }
+
       query += ' ORDER BY name ASC';
 
       const result = await pool.query(query, params);
-      
+
       // Add computed fields for Flutter compatibility
-      const products = result.rows.map(product => ({
+      const products = result.rows.map((product) => ({
         ...product,
         stockDisplay: `${product.stock}${product.unit}`,
         availableStock: Math.max(0, product.stock - product.used),
-        stockStatus: product.stock <= product.need_to_order ? 'low' : 
-                    product.stock <= (product.need_to_order * 1.5) ? 'medium' : 'high'
+        stockStatus:
+          product.stock <= product.need_to_order
+            ? 'low'
+            : product.stock <= product.need_to_order * 1.5
+              ? 'medium'
+              : 'high',
       }));
 
       res.json({
         success: true,
         data: products,
-        count: products.length
+        count: products.length,
       });
     } catch (error) {
       console.error('Error fetching products:', error);
       res.status(500).json({
         success: false,
         message: 'Error fetching products',
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -53,33 +62,39 @@ class ProductController {
   async getProductById(req, res) {
     try {
       const { id } = req.params;
-      const result = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
+      const result = await pool.query('SELECT * FROM products WHERE id = $1', [
+        id,
+      ]);
 
       if (result.rows.length === 0) {
         return res.status(404).json({
           success: false,
-          message: 'Product not found'
+          message: 'Product not found',
         });
       }
 
       const product = result.rows[0];
-      
+
       res.json({
         success: true,
         data: {
           ...product,
           stockDisplay: `${product.stock}${product.unit}`,
           availableStock: Math.max(0, product.stock - product.used),
-          stockStatus: product.stock <= product.need_to_order ? 'low' : 
-                      product.stock <= (product.need_to_order * 1.5) ? 'medium' : 'high'
-        }
+          stockStatus:
+            product.stock <= product.need_to_order
+              ? 'low'
+              : product.stock <= product.need_to_order * 1.5
+                ? 'medium'
+                : 'high',
+        },
       });
     } catch (error) {
       console.error('Error fetching product:', error);
       res.status(500).json({
         success: false,
         message: 'Error fetching product',
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -91,7 +106,7 @@ class ProductController {
         return res.status(400).json({
           success: false,
           message: 'Validation error',
-          errors: error.details.map(detail => detail.message)
+          errors: error.details.map((detail) => detail.message),
         });
       }
 
@@ -105,14 +120,27 @@ class ProductController {
         description,
         image_url,
         category,
-        is_available = true
+        type,
+        is_available = true,
       } = value;
 
       const result = await pool.query(
-        `INSERT INTO products (name, price, stock, unit, used, need_to_order, description, image_url, category, is_available)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `INSERT INTO products (name, price, stock, unit, used, need_to_order, description, image_url, category, type, is_available)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING *`,
-        [name, price, stock, unit, used, need_to_order, description, image_url, category, is_available]
+        [
+          name,
+          price,
+          stock,
+          unit,
+          used,
+          need_to_order,
+          description,
+          image_url,
+          category,
+          type,
+          is_available,
+        ]
       );
 
       const product = result.rows[0];
@@ -124,16 +152,20 @@ class ProductController {
           ...product,
           stockDisplay: `${product.stock}${product.unit}`,
           availableStock: Math.max(0, product.stock - product.used),
-          stockStatus: product.stock <= product.need_to_order ? 'low' : 
-                      product.stock <= (product.need_to_order * 1.5) ? 'medium' : 'high'
-        }
+          stockStatus:
+            product.stock <= product.need_to_order
+              ? 'low'
+              : product.stock <= product.need_to_order * 1.5
+                ? 'medium'
+                : 'high',
+        },
       });
     } catch (error) {
       console.error('Error creating product:', error);
       res.status(500).json({
         success: false,
         message: 'Error creating product',
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -142,12 +174,12 @@ class ProductController {
     try {
       const { id } = req.params;
       const { error, value } = productSchema.validate(req.body);
-      
+
       if (error) {
         return res.status(400).json({
           success: false,
           message: 'Validation error',
-          errors: error.details.map(detail => detail.message)
+          errors: error.details.map((detail) => detail.message),
         });
       }
 
@@ -161,22 +193,36 @@ class ProductController {
         description,
         image_url,
         category,
-        is_available
+        type,
+        is_available,
       } = value;
 
       const result = await pool.query(
         `UPDATE products 
          SET name = $1, price = $2, stock = $3, unit = $4, used = $5, need_to_order = $6,
-             description = $7, image_url = $8, category = $9, is_available = $10, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $11
+             description = $7, image_url = $8, category = $9, type = $10, is_available = $11, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $12
          RETURNING *`,
-        [name, price, stock, unit, used, need_to_order, description, image_url, category, is_available, id]
+        [
+          name,
+          price,
+          stock,
+          unit,
+          used,
+          need_to_order,
+          description,
+          image_url,
+          category,
+          type,
+          is_available,
+          id,
+        ]
       );
 
       if (result.rows.length === 0) {
         return res.status(404).json({
           success: false,
-          message: 'Product not found'
+          message: 'Product not found',
         });
       }
 
@@ -189,16 +235,20 @@ class ProductController {
           ...product,
           stockDisplay: `${product.stock}${product.unit}`,
           availableStock: Math.max(0, product.stock - product.used),
-          stockStatus: product.stock <= product.need_to_order ? 'low' : 
-                      product.stock <= (product.need_to_order * 1.5) ? 'medium' : 'high'
-        }
+          stockStatus:
+            product.stock <= product.need_to_order
+              ? 'low'
+              : product.stock <= product.need_to_order * 1.5
+                ? 'medium'
+                : 'high',
+        },
       });
     } catch (error) {
       console.error('Error updating product:', error);
       res.status(500).json({
         success: false,
         message: 'Error updating product',
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -206,39 +256,32 @@ class ProductController {
   async deleteProduct(req, res) {
     try {
       const { id } = req.params;
-      
-      // Check if product is used in any orders
-      const orderCheck = await pool.query(
-        'SELECT COUNT(*) FROM order_items WHERE product_id = $1',
+
+      // Perform a "soft delete" by setting the product to unavailable
+      const result = await pool.query(
+        'UPDATE products SET is_available = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
         [id]
       );
-
-      if (parseInt(orderCheck.rows[0].count) > 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot delete product that has been ordered'
-        });
-      }
-
-      const result = await pool.query('DELETE FROM products WHERE id = $1 RETURNING *', [id]);
 
       if (result.rows.length === 0) {
         return res.status(404).json({
           success: false,
-          message: 'Product not found'
+          message: 'Product not found',
         });
       }
 
+      // The product is now marked as unavailable instead of being deleted.
+      // We will return a success message reflecting this change.
       res.json({
         success: true,
-        message: 'Product deleted successfully'
+        message: 'Product marked as unavailable successfully (soft delete)',
       });
     } catch (error) {
       console.error('Error deleting product:', error);
       res.status(500).json({
         success: false,
         message: 'Error deleting product',
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -251,14 +294,14 @@ class ProductController {
 
       res.json({
         success: true,
-        data: result.rows.map(row => row.category)
+        data: result.rows.map((row) => row.category),
       });
     } catch (error) {
       console.error('Error fetching categories:', error);
       res.status(500).json({
         success: false,
         message: 'Error fetching categories',
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -268,10 +311,15 @@ class ProductController {
       const { id } = req.params;
       const { stock, used, need_to_order } = req.body;
 
-      if (stock === undefined && used === undefined && need_to_order === undefined) {
+      if (
+        stock === undefined &&
+        used === undefined &&
+        need_to_order === undefined
+      ) {
         return res.status(400).json({
           success: false,
-          message: 'At least one field (stock, used, need_to_order) is required'
+          message:
+            'At least one field (stock, used, need_to_order) is required',
         });
       }
 
@@ -295,14 +343,16 @@ class ProductController {
       }
 
       params.push(id);
-      query += updates.join(', ') + `, updated_at = CURRENT_TIMESTAMP WHERE id = $${params.length} RETURNING *`;
+      query +=
+        updates.join(', ') +
+        `, updated_at = CURRENT_TIMESTAMP WHERE id = $${params.length} RETURNING *`;
 
       const result = await pool.query(query, params);
 
       if (result.rows.length === 0) {
         return res.status(404).json({
           success: false,
-          message: 'Product not found'
+          message: 'Product not found',
         });
       }
 
@@ -315,16 +365,20 @@ class ProductController {
           ...product,
           stockDisplay: `${product.stock}${product.unit}`,
           availableStock: Math.max(0, product.stock - product.used),
-          stockStatus: product.stock <= product.need_to_order ? 'low' : 
-                      product.stock <= (product.need_to_order * 1.5) ? 'medium' : 'high'
-        }
+          stockStatus:
+            product.stock <= product.need_to_order
+              ? 'low'
+              : product.stock <= product.need_to_order * 1.5
+                ? 'medium'
+                : 'high',
+        },
       });
     } catch (error) {
       console.error('Error updating stock:', error);
       res.status(500).json({
         success: false,
         message: 'Error updating stock',
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -335,25 +389,25 @@ class ProductController {
         'SELECT * FROM products WHERE stock <= need_to_order AND is_available = true ORDER BY (stock - need_to_order) ASC'
       );
 
-      const products = result.rows.map(product => ({
+      const products = result.rows.map((product) => ({
         ...product,
         stockDisplay: `${product.stock}${product.unit}`,
         availableStock: Math.max(0, product.stock - product.used),
         stockStatus: 'low',
-        shortage: Math.max(0, product.need_to_order - product.stock)
+        shortage: Math.max(0, product.need_to_order - product.stock),
       }));
 
       res.json({
         success: true,
         data: products,
-        count: products.length
+        count: products.length,
       });
     } catch (error) {
       console.error('Error fetching low stock products:', error);
       res.status(500).json({
         success: false,
         message: 'Error fetching low stock products',
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -376,14 +430,78 @@ class ProductController {
 
       res.json({
         success: true,
-        data: result.rows
+        data: result.rows,
       });
     } catch (error) {
       console.error('Error fetching stock report:', error);
       res.status(500).json({
         success: false,
         message: 'Error fetching stock report',
-        error: error.message
+        error: error.message,
+      });
+    }
+  }
+
+  async getAllKitchenProducts(req, res) {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM products WHERE type = 'Kitchen' ORDER BY name ASC"
+      );
+
+      const products = result.rows.map((product) => ({
+        ...product,
+        stockDisplay: `${product.stock}${product.unit}`,
+        availableStock: Math.max(0, product.stock - product.used),
+        stockStatus:
+          product.stock <= product.need_to_order
+            ? 'low'
+            : product.stock <= product.need_to_order * 1.5
+              ? 'medium'
+              : 'high',
+      }));
+
+      res.json({
+        success: true,
+        data: products,
+        count: products.length,
+      });
+    } catch (error) {
+      console.error('Error fetching Kitchen products:', error);
+      res
+        .status(500)
+        .json({ success: false, message: 'Error fetching Kitchen products' });
+    }
+  }
+
+  async getAllBarProducts(req, res) {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM products WHERE type = 'Bar' ORDER BY name ASC"
+      );
+
+      const products = result.rows.map((product) => ({
+        ...product,
+        stockDisplay: `${product.stock}${product.unit}`,
+        availableStock: Math.max(0, product.stock - product.used),
+        stockStatus:
+          product.stock <= product.need_to_order
+            ? 'low'
+            : product.stock <= product.need_to_order * 1.5
+              ? 'medium'
+              : 'high',
+      }));
+
+      res.json({
+        success: true,
+        data: products,
+        count: products.length,
+      });
+    } catch (error) {
+      console.error('Error fetching Bar products:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching Bar products',
+        error: error.message,
       });
     }
   }

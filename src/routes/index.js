@@ -1,6 +1,7 @@
 const express = require('express');
 const productRoutes = require('./productRoutes');
 const orderRoutes = require('./orderRoutes');
+const authRoutes = require('./authRoutes');
 const router = express.Router();
 
 // Health check endpoint
@@ -9,11 +10,12 @@ router.get('/health', (req, res) => {
     success: true,
     message: 'CBC Vegetable Order API is running',
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
   });
 });
 
 // API routes
+router.use('/auth', authRoutes);
 router.use('/products', productRoutes);
 router.use('/orders', orderRoutes);
 

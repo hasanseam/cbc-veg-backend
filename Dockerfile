@@ -11,6 +11,9 @@ RUN npm install
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodejs -u 1001
 
+# Install wget for the healthcheck before switching user
+RUN apk add --no-cache wget
+
 # Create necessary directories
 RUN mkdir -p logs
 RUN chown -R nodejs:nodejs /usr/src/app
