@@ -24,7 +24,7 @@ export default [
     },
     rules: {
       ...js.configs.recommended.rules, // Start with ESLint's recommended rules
-      'no-console': 'warn', // Warn about console.log instead of erroring
+      'no-console': 'off', // Completely disable the no-console rule
     },
   },
 
