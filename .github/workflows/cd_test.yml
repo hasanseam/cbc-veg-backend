@@ -1,4 +1,4 @@
-name: Deploy API with minimal downtime
+name: Deploy API with Minimal Downtime
 
 on:
   push:
@@ -9,25 +9,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: SSH to Server & Deploy
+      - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd Desktop/cbc-veg-backend/
+            # Stop immediately if any command fails
+            set -euo pipefail
 
-            echo "Pulling latest code..."
+            echo "Starting deployment..."
+            cd ~/Desktop/cbc-veg-backend/
+
+            echo "Pulling latest code from GitHub..."
             git pull
 
-            echo "Rebuilding API image..."
+            echo "Running database migrations first..."
+            docker compose run --rm --network cbc-network api node src/database/migrate.js
+            echo "Migrations completed successfully"
+
+            echo "Building API Docker image..."
             docker compose build api
 
-            echo "Starting API with <0.5s downtime..."
+            echo "Restarting API container with minimal downtime..."
             docker compose up -d --no-deps api
 
-            echo "Running DB migrations..."
-            docker compose exec api node migrate.js
-
-            echo "Deployment complete!"
+            echo "Deployment completed successfully!"
