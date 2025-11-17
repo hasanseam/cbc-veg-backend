@@ -1,36 +1,33 @@
-name: Test SSH Deployment
+name: Deploy API with minimal downtime
 
 on:
   push:
-    branches: [ "main" ]   # change if your branch is different
+    branches: [ "main" ]
 
 jobs:
-  test-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Test SSH connection and update code
+      - name: SSH to Server & Deploy
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            # Navigate to your project folder
-            cd ~/Desktop/cbc-veg-backend/
+            cd Desktop/cbc-veg-backend/
 
-            # If folder exists, pull latest changes
-            if [ -d ".git" ]; then
-              git reset --hard
-              git clean -fd
-              git pull origin main
-            else
-              # If folder doesn't exist, clone the repo
-              git clone https://github.com/hasanseam/cbc-veg-backend.git ~/Desktop/cbc-veg-backend/
-              cd ~/Desktop/cbc-veg-backend/
-            fi
+            echo "Pulling latest code..."
+            git pull
 
-            # Optional: echo status
-            echo "Repository updated successfully!"
-            echo "Current user: $(whoami)"
-            echo "Update time: $(date)"
+            echo "Rebuilding API image..."
+            docker compose build api
+
+            echo "Starting API with <0.5s downtime..."
+            docker compose up -d --no-deps api
+
+            echo "Running DB migrations..."
+            docker compose exec api node migrate.js
+
+            echo "Deployment complete!"
