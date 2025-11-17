@@ -26,7 +26,7 @@ jobs:
             git pull
 
             echo "Running database migrations first..."
-            docker compose run --rm --network cbc-network api node src/database/migrate.js
+            docker compose run --rm api node src/database/migrate.js
             echo "Migrations completed successfully"
 
             echo "Building API Docker image..."
