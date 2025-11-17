@@ -1,1 +1,22 @@
 
+name: Test SSH Deployment
+
+on:
+  push:
+    branches: [ "main" ]   # change if your branch is different
+
+jobs:
+  test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test SSH connection and echo
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo "Hello from GitHub Actions!"
+            echo "Current user: $(whoami)"
+            echo "Test successful at $(date)"
