@@ -1,4 +1,3 @@
-
 name: Test SSH Deployment
 
 on:
@@ -10,13 +9,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Test SSH connection and echo
+      - name: Test SSH connection and update code
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            echo "Hello from GitHub Actions!"
+            # Navigate to your project folder
+            cd ~/Desktop/cbc-veg-backend/
+
+            # If folder exists, pull latest changes
+            if [ -d ".git" ]; then
+              git reset --hard
+              git clean -fd
+              git pull origin main
+            else
+              # If folder doesn't exist, clone the repo
+              git clone https://github.com/hasanseam/cbc-veg-backend.git ~/Desktop/cbc-veg-backend/
+              cd ~/Desktop/cbc-veg-backend/
+            fi
+
+            # Optional: echo status
+            echo "Repository updated successfully!"
             echo "Current user: $(whoami)"
-            echo "Test successful at $(date)"
+            echo "Update time: $(date)"
